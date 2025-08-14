@@ -2,6 +2,10 @@ name: "Setup Parachain Template"
 description: "Clones, builds, and caches the Polkadot SDK parachain-template with enhanced error handling"
 
 inputs:
+  template-repo:
+    description: "Repository URL for the parachain template"
+    required: false
+    default: "https://github.com/paritytech/polkadot-sdk-parachain-template.git"
   rust-version:
     description: "Rust version to use for building"
     required: false
@@ -45,6 +49,11 @@ runs:
         if [[ ! "${{ inputs.template-branch }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "⚠️ Warning: template-branch '${{ inputs.template-branch }}' doesn't follow expected format (vX.Y.Z)"
         fi
+        
+        # Validate repository URL format
+        if [[ ! "${{ inputs.template-repo }}" =~ ^https://github\.com/.+/.+\.git$ ]]; then
+          echo "⚠️ Warning: template-repo '${{ inputs.template-repo }}' doesn't follow expected GitHub format"
+        fi
 
     - name: Setup Rust
       uses: ./.github/actions/setup-rust
@@ -64,7 +73,7 @@ runs:
     - name: Clone parachain template
       shell: bash
       run: |
-        echo "📥 Cloning parachain template from branch ${{ inputs.template-branch }}..."
+        echo "📥 Cloning parachain template from ${{ inputs.template-repo }} (branch: ${{ inputs.template-branch }})..."
         
         if [ -d "parachain-template" ]; then
           echo "🧹 Cleaning existing template directory..."
@@ -74,7 +83,7 @@ runs:
         git clone \
           --depth 1 \
           --branch ${{ inputs.template-branch }} \
-          https://github.com/paritytech/polkadot-sdk-parachain-template.git \
+          ${{ inputs.template-repo }} \
           parachain-template
         
         echo "✅ Template cloned successfully"
@@ -92,10 +101,10 @@ runs:
         path: |
           parachain-template/target/release
           parachain-template/target/wbuild
-        key: parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ inputs.template-branch }}-${{ inputs.rust-version }}-${{ hashFiles('parachain-template/**/Cargo.toml', 'parachain-template/**/Cargo.lock') }}${{ inputs.cache-key-suffix }}
+        key: parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.template-repo) }}-${{ inputs.template-branch }}-${{ inputs.rust-version }}-${{ hashFiles('parachain-template/**/Cargo.toml', 'parachain-template/**/Cargo.lock') }}${{ inputs.cache-key-suffix }}
         restore-keys: |
-          parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ inputs.template-branch }}-${{ inputs.rust-version }}-
-          parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ inputs.template-branch }}-
+          parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.template-repo) }}-${{ inputs.template-branch }}-${{ inputs.rust-version }}-
+          parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.template-repo) }}-${{ inputs.template-branch }}-
 
     - name: Build parachain
       if: steps.build-cache.outputs.cache-hit != 'true'
@@ -137,4 +146,3 @@ runs:
         RUNTIME_SIZE=$(du -h "$RUNTIME_PATH" | cut -f1)
         
         echo "✅ Runtime verified: $RUNTIME_SIZE"
-        

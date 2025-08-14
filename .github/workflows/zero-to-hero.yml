@@ -1,12 +1,18 @@
-name: Set Up a Template
+name: zero-to-hero
+description: "Zero to Hero Tutorial"
 
 on:
   workflow_dispatch:
     inputs:
+      template-repo:
+        description: "Repository URL for the parachain template"
+        required: false
+        default: "https://github.com/papermoonio/zero-to-hero-tutorial.git"
+        type: string
       template-branch:
         description: "Branch of the parachain template to clone"
         required: false
-        default: "v0.0.4"
+        default: "v0.0.4-complete-tutorial"
         type: choice
         options:
           - "v0.0.4"
@@ -90,6 +96,7 @@ jobs:
         id: setup-template
         uses: ./.github/actions/setup-parachain-template
         with:
+          template-repo: ${{ inputs.template-repo }}
           template-branch: ${{ inputs.template-branch }}
           rust-version: ${{ env.RUST_VERSION }}
           para-id: ${{ inputs.para-id }}
@@ -122,6 +129,14 @@ jobs:
             echo "❌ Invalid run-duration: ${{ inputs.run-duration }}"
             exit 1
           fi
+          
+          # Validate repository URL format
+          if [[ ! "${{ inputs.template-repo }}" =~ ^https://github\.com/.+/.+\.git$ ]]; then
+            echo "⚠️ Warning: template-repo '${{ inputs.template-repo }}' doesn't follow expected GitHub format"
+          fi
+          
+          echo "✅ Using template repository: ${{ inputs.template-repo }}"
+          echo "✅ Using template branch: ${{ inputs.template-branch }}"
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -156,6 +171,8 @@ jobs:
       - name: Generate chain specification
         run: |
           echo "🔧 Generating chain specification..."
+          echo "📋 Using repository: ${{ inputs.template-repo }}"
+          echo "📋 Using branch: ${{ inputs.template-branch }}"
           
           # Find the runtime WASM file
           RUNTIME_WASM=$(find ./artifacts -name "*.compressed.wasm" -type f | head -1)
@@ -170,7 +187,7 @@ jobs:
           
           # Generate chain spec
           chain-spec-builder create \
-            --template development \
+            -t development \
             --relay-chain ${{ inputs.relay-chain }} \
             --para-id ${{ inputs.para-id }} \
             --runtime "$RUNTIME_WASM" \
@@ -204,11 +221,13 @@ jobs:
           echo "📋 Chain Name: $CHAIN_NAME"
           echo "🆔 Para ID: $PARA_ID"
           echo "🔗 Relay Chain: $RELAY_CHAIN"
+          echo "📦 Template Source: ${{ inputs.template-repo }}@${{ inputs.template-branch }}"
 
       - name: Start Polkadot omni-node
         timeout-minutes: 5
         run: |
           echo "🚀 Starting Polkadot omni-node..."
+          echo "📦 Built from: ${{ inputs.template-repo }}@${{ inputs.template-branch }}"
           
           # Determine run duration
           RUN_DURATION=${{ inputs.run-duration }}
