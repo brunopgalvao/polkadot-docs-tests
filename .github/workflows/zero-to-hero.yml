@@ -1,5 +1,5 @@
-name: Zero to Hero Tutorial
-description: "Zero to Hero Tutorial"
+name: Zero to Hero
+description: "Zero to Hero"
 
 on:
   workflow_dispatch:
