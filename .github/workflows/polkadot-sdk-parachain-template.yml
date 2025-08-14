@@ -12,11 +12,7 @@ on:
         description: "Branch of the parachain template to clone"
         required: false
         default: "v0.0.4"
-        type: choice
-        options:
-          - "v0.0.4"
-          - "stable2412"
-          - "main"
+        type: string
       chain-spec-builder-version:
         description: 'Polkadot chain-spec-builder version'
         default: '10.0.0'
