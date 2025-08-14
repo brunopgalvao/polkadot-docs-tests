@@ -75,10 +75,32 @@ jobs:
           omni-node-version: ${{ inputs.omni-node-version }}
           rust-version: ${{ env.RUST_VERSION }}
 
+      - name: Verify binaries before caching
+        run: |
+          echo "🔍 Checking installed binaries..."
+          ls -la ~/.cargo/bin/ || echo "~/.cargo/bin/ does not exist"
+          
+          if [ -f ~/.cargo/bin/chain-spec-builder ]; then
+            echo "✅ chain-spec-builder found"
+            ls -la ~/.cargo/bin/chain-spec-builder
+          else
+            echo "❌ chain-spec-builder not found"
+          fi
+          
+          if [ -f ~/.cargo/bin/polkadot-omni-node ]; then
+            echo "✅ polkadot-omni-node found"
+            ls -la ~/.cargo/bin/polkadot-omni-node
+          else
+            echo "❌ polkadot-omni-node not found"
+          fi
+
       - name: Cache tools for main job
         uses: actions/cache/save@v4
+        if: hashFiles('~/.cargo/bin/chain-spec-builder') != '' && hashFiles('~/.cargo/bin/polkadot-omni-node') != ''
         with:
-          path: ~/.cargo/bin
+          path: |
+            ~/.cargo/bin/chain-spec-builder
+            ~/.cargo/bin/polkadot-omni-node
           key: tools-${{ runner.os }}-${{ runner.arch }}-${{ inputs.chain-spec-builder-version }}-${{ inputs.omni-node-version }}
 
   build-parachain:
