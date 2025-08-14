@@ -1,0 +1,25 @@
+name: Setup Polkadot omni-node
+
+on:
+  workflow_dispatch:
+    inputs:
+      omni-node-version:
+        description: 'Polkadot omni-node version'
+        default: '0.5.0'
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup omni-node
+        uses: ./.github/actions/setup-omni-node
+        with:
+          omni-node-version: ${{ inputs.omni-node-version }}
+
+      - name: Run Polkadot omni-node
+        shell: bash
+        run: |
+          polkadot-omni-node --version
