@@ -1,11 +1,11 @@
-name: "Setup Parachain Template"
-description: "Clones, builds, and caches a Polkadot SDK parachain-template"
+name: "Setup Zero-to-Hero Tutorial Parachain"
+description: "Clones, builds, and caches the Zero-to-Hero tutorial parachain from polkadot-sdk-docs-tests repository"
 
 inputs:
   template-repo:
     description: "Repository URL for the parachain template"
     required: false
-    default: "https://github.com/paritytech/polkadot-sdk-parachain-template.git"
+    default: "https://github.com/brunopgalvao/polkadot-sdk-docs-tests"
   rust-version:
     description: "Rust version to use for building"
     required: false
@@ -13,7 +13,7 @@ inputs:
   template-branch:
     description: "Branch of the parachain template to clone"
     required: false
-    default: "v0.0.4"
+    default: "main"
   cache-key-suffix:
     description: "Suffix for build cache key"
     required: false
@@ -46,12 +46,8 @@ runs:
           exit 1
         fi
         
-        if [[ ! "${{ inputs.template-branch }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "⚠️ Warning: template-branch '${{ inputs.template-branch }}' doesn't follow expected format (vX.Y.Z)"
-        fi
-        
         # Validate repository URL format
-        if [[ ! "${{ inputs.template-repo }}" =~ ^https://github\.com/.+/.+\.git$ ]]; then
+        if [[ ! "${{ inputs.template-repo }}" =~ ^https://github\.com/.+/.+$ ]]; then
           echo "⚠️ Warning: template-repo '${{ inputs.template-repo }}' doesn't follow expected GitHub format"
         fi
 
@@ -64,32 +60,38 @@ runs:
       id: setup
       shell: bash
       run: |
-        TEMPLATE_PATH="${GITHUB_WORKSPACE}/parachain-template"
-        RUNTIME_PATH="${TEMPLATE_PATH}/target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm"
+        TEMPLATE_PATH="${GITHUB_WORKSPACE}/zero-to-hero-tutorial"
+        RUNTIME_PATH="${TEMPLATE_PATH}/target/release/wbuild/zero-to-hero-tutorial-runtime/zero_to_hero_tutorial_runtime.compact.compressed.wasm"
         
         echo "template-path=$TEMPLATE_PATH" >> $GITHUB_OUTPUT
         echo "runtime-path=$RUNTIME_PATH" >> $GITHUB_OUTPUT
 
-    - name: Clone parachain template
+    - name: Clone zero-to-hero-tutorial parachain
       shell: bash
       run: |
-        echo "📥 Cloning parachain template from ${{ inputs.template-repo }} (branch: ${{ inputs.template-branch }})..."
+        echo "📥 Cloning zero-to-hero-tutorial from ${{ inputs.template-repo }} (branch: ${{ inputs.template-branch }})..."
         
-        if [ -d "parachain-template" ]; then
+        if [ -d "zero-to-hero-tutorial" ]; then
           echo "🧹 Cleaning existing template directory..."
-          rm -rf parachain-template
+          rm -rf zero-to-hero-tutorial
         fi
         
-        git clone \
-          --depth 1 \
-          --branch ${{ inputs.template-branch }} \
-          ${{ inputs.template-repo }} \
-          parachain-template
+        # Clone with sparse checkout to get only the zero-to-hero-tutorial directory
+        git clone --no-checkout --branch ${{ inputs.template-branch }} ${{ inputs.template-repo }} temp-repo
+        cd temp-repo
+        git sparse-checkout init --cone
+        git sparse-checkout set zero-to-hero-tutorial
+        git checkout
+        
+        # Move the zero-to-hero-tutorial to the workspace root
+        mv zero-to-hero-tutorial ../zero-to-hero-tutorial
+        cd ..
+        rm -rf temp-repo
         
         echo "✅ Template cloned successfully"
         
         # Verify critical files exist
-        if [ ! -f "parachain-template/Cargo.toml" ]; then
+        if [ ! -f "zero-to-hero-tutorial/Cargo.toml" ]; then
           echo "❌ Cargo.toml not found in template"
           exit 1
         fi
@@ -99,19 +101,19 @@ runs:
       uses: actions/cache@v4
       with:
         path: |
-          parachain-template/target/release
-          parachain-template/target/wbuild
-        key: parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.template-repo) }}-${{ inputs.template-branch }}-${{ inputs.rust-version }}-${{ hashFiles('parachain-template/**/Cargo.toml', 'parachain-template/**/Cargo.lock') }}${{ inputs.cache-key-suffix }}
+          zero-to-hero-tutorial/target/release
+          zero-to-hero-tutorial/target/wbuild
+        key: parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.template-repo) }}-${{ inputs.template-branch }}-${{ inputs.rust-version }}-${{ hashFiles('zero-to-hero-tutorial/**/Cargo.toml', 'zero-to-hero-tutorial/**/Cargo.lock') }}${{ inputs.cache-key-suffix }}
         restore-keys: |
           parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.template-repo) }}-${{ inputs.template-branch }}-${{ inputs.rust-version }}-
           parachain-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.template-repo) }}-${{ inputs.template-branch }}-
 
     - name: Build parachain
       if: steps.build-cache.outputs.cache-hit != 'true'
-      working-directory: parachain-template
+      working-directory: zero-to-hero-tutorial
       shell: bash
       run: |
-        echo "🔨 Building parachain template..."
+        echo "🔨 Building zero-to-hero-tutorial parachain..."
         echo "📊 Available disk space:"
         df -h
         
@@ -138,7 +140,7 @@ runs:
         if [ ! -f "$RUNTIME_PATH" ]; then
           echo "❌ Runtime WASM not found at: $RUNTIME_PATH"
           echo "🔍 Available runtime files:"
-          find parachain-template/target -name "*.wasm" -type f || echo "No WASM files found"
+          find zero-to-hero-tutorial/target -name "*.wasm" -type f || echo "No WASM files found"
           exit 1
         fi
         

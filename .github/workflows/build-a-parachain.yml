@@ -11,7 +11,7 @@ on:
       template-branch:
         description: "Branch of a parachain template to clone"
         required: false
-        default: "v0.0.4"
+        default: "main"
         type: string
       chain-spec-builder-version:
         description: 'Polkadot chain-spec-builder version'
