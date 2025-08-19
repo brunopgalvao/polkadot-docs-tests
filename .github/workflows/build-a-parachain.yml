@@ -1,4 +1,4 @@
-name: polkadot-sdk-parachain-template
+name: Build a Parachain
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
         default: "https://github.com/paritytech/polkadot-sdk-parachain-template.git"
         type: string
       template-branch:
-        description: "Branch of the parachain template to clone"
+        description: "Branch of a parachain template to clone"
         required: false
         default: "v0.0.4"
         type: string
@@ -154,11 +154,6 @@ jobs:
           
           echo "✅ Using template repository: ${{ inputs.template-repo }}"
           echo "✅ Using template branch: ${{ inputs.template-branch }}"
-
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          rust-version: ${{ env.RUST_VERSION }}
 
       - name: Restore tools cache
         uses: actions/cache/restore@v4
