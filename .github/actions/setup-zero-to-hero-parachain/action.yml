@@ -61,7 +61,7 @@ runs:
       shell: bash
       run: |
         TEMPLATE_PATH="${GITHUB_WORKSPACE}/zero-to-hero-tutorial"
-        RUNTIME_PATH="${TEMPLATE_PATH}/target/release/wbuild/parachain-template-runtime/parachain_template_runtime_runtime.compact.compressed.wasm"
+        RUNTIME_PATH="${TEMPLATE_PATH}/target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm"
         
         echo "template-path=$TEMPLATE_PATH" >> $GITHUB_OUTPUT
         echo "runtime-path=$RUNTIME_PATH" >> $GITHUB_OUTPUT
