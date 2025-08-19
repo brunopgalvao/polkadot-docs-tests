@@ -7,12 +7,12 @@ on:
       template-repo:
         description: "Repository URL for the parachain template"
         required: false
-        default: "https://github.com/papermoonio/zero-to-hero-tutorial.git"
+        default: "https://github.com/brunopgalvao/polkadot-sdk-docs-tests"
         type: string
       template-branch:
-        description: "Branch of the parachain template to clone"
+        description: "Branch to clone"
         required: false
-        default: "v0.0.4-complete-tutorial"
+        default: "main"
         type: string
       chain-spec-builder-version:
         description: 'Polkadot chain-spec-builder version'
@@ -88,9 +88,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup parachain template
+      - name: Setup Zero to Hero parachain
         id: setup-template
-        uses: ./.github/actions/setup-parachain-template
+        uses: ./.github/actions/setup-zero-to-hero-parachain
         with:
           template-repo: ${{ inputs.template-repo }}
           template-branch: ${{ inputs.template-branch }}
