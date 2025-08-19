@@ -11,7 +11,7 @@ inputs:
     required: false
     default: "1.86"
   template-branch:
-    description: "Branch of the parachain template to clone"
+    description: "Branch to clone"
     required: false
     default: "main"
   cache-key-suffix:
@@ -25,7 +25,7 @@ inputs:
 
 outputs:
   template-path:
-    description: "Path to cloned parachain template"
+    description: "Path to cloned parachain"
     value: ${{ steps.setup.outputs.template-path }}
   runtime-path:
     description: "Path to WASM runtime file"
