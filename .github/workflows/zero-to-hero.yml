@@ -4,12 +4,7 @@ description: "Zero to Hero"
 on:
   workflow_dispatch:
     inputs:
-      template-repo:
-        description: "Repository URL for the parachain template"
-        required: false
-        default: "https://github.com/brunopgalvao/polkadot-sdk-docs-tests"
-        type: string
-      template-branch:
+      branch:
         description: "Branch to clone"
         required: false
         default: "main"
@@ -24,19 +19,6 @@ on:
         default: '0.5.0'
         required: false
         type: string
-      para-id:
-        description: 'Parachain ID'
-        default: '1000'
-        required: false
-        type: string
-      relay-chain:
-        description: 'Relay chain to use'
-        default: 'paseo'
-        required: false
-        type: choice
-        options:
-          - "paseo"
-          - "westend"
       run-duration:
         description: 'How long to run the node (in seconds, 0 for indefinite)'
         default: '120'
@@ -82,28 +64,25 @@ jobs:
     name: Build Parachain
     runs-on: ubuntu-latest
     outputs:
-      template-path: ${{ steps.setup-template.outputs.template-path }}
+      parachain-path: ${{ steps.setup-template.outputs.parachain-path }}
       runtime-path: ${{ steps.setup-template.outputs.runtime-path }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Zero to Hero parachain
-        id: setup-template
+        id: setup-parachain
         uses: ./.github/actions/setup-zero-to-hero-parachain
         with:
-          template-repo: ${{ inputs.template-repo }}
-          template-branch: ${{ inputs.template-branch }}
+          branch: ${{ inputs.branch }}
           rust-version: ${{ env.RUST_VERSION }}
-          para-id: ${{ inputs.para-id }}
 
       - name: Upload parachain artifacts
         uses: actions/upload-artifact@v4
         with:
           name: parachain-artifacts-${{ github.run_id }}
           path: |
-            ${{ steps.setup-template.outputs.binary-path }}
-            ${{ steps.setup-template.outputs.runtime-path }}
+            ${{ steps.setup-parachain.outputs.runtime-path }}
           retention-days: 1
 
   run-parachain:
@@ -113,26 +92,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Validate inputs
-        run: |
-          if [[ ! "${{ inputs.para-id }}" =~ ^[0-9]+$ ]]; then
-            echo "❌ Invalid para-id: ${{ inputs.para-id }}"
-            exit 1
-          fi
-          
-          if [[ ! "${{ inputs.run-duration }}" =~ ^[0-9]+$ ]]; then
-            echo "❌ Invalid run-duration: ${{ inputs.run-duration }}"
-            exit 1
-          fi
-          
-          # Validate repository URL format
-          if [[ ! "${{ inputs.template-repo }}" =~ ^https://github\.com/.+/.+\.git$ ]]; then
-            echo "⚠️ Warning: template-repo '${{ inputs.template-repo }}' doesn't follow expected GitHub format"
-          fi
-          
-          echo "✅ Using template repository: ${{ inputs.template-repo }}"
-          echo "✅ Using template branch: ${{ inputs.template-branch }}"
 
       - name: Restore tools cache
         uses: actions/cache/restore@v4
@@ -159,12 +118,6 @@ jobs:
           chain-spec-builder --version
           polkadot-omni-node --version
 
-      - name: Generate chain specification
-        run: |
-          echo "🔧 Generating chain specification..."
-          echo "📋 Using repository: ${{ inputs.template-repo }}"
-          echo "📋 Using branch: ${{ inputs.template-branch }}"
-          
           # Find the runtime WASM file
           RUNTIME_WASM=$(find ./artifacts -name "*.compressed.wasm" -type f | head -1)
           if [ -z "$RUNTIME_WASM" ]; then
@@ -174,14 +127,21 @@ jobs:
             exit 1
           fi
           
-          echo "✅ Using runtime: $RUNTIME_WASM"
+          mkdir -p ./target/release/wbuild/parachain-template-runtime/
+          cp $RUNTIME_WASM ./target/release/wbuild/parachain-template-runtime/
+
+      - name: Generate chain specification
+        run: |
+          echo "🔧 Generating chain specification..."
+          echo "📋 Using repository: https://github.com/brunopgalvao/polkadot-sdk-docs-tests"
+          echo "📋 Using branch: ${{ inputs.branch }}"
           
           # Generate chain spec
           chain-spec-builder create \
             -t development \
-            --relay-chain ${{ inputs.relay-chain }} \
-            --para-id ${{ inputs.para-id }} \
-            --runtime "$RUNTIME_WASM" \
+            --relay-chain paseo \
+            --para-id 1000 \
+            --runtime ./target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm \
             named-preset development
           
           # Verify chain spec was created
@@ -212,13 +172,13 @@ jobs:
           echo "📋 Chain Name: $CHAIN_NAME"
           echo "🆔 Para ID: $PARA_ID"
           echo "🔗 Relay Chain: $RELAY_CHAIN"
-          echo "📦 Template Source: ${{ inputs.template-repo }}@${{ inputs.template-branch }}"
+          echo "📦 Parachain Source: https://github.com/brunopgalvao/polkadot-sdk-docs-tests@${{ inputs.branch }}"
 
       - name: Start Polkadot omni-node
         timeout-minutes: 5
         run: |
           echo "🚀 Starting Polkadot omni-node..."
-          echo "📦 Built from: ${{ inputs.template-repo }}@${{ inputs.template-branch }}"
+          echo "📦 Built from: https://github.com/brunopgalvao/polkadot-sdk-docs-tests@${{ inputs.branch }}"
           
           # Determine run duration
           RUN_DURATION=${{ inputs.run-duration }}
@@ -231,14 +191,10 @@ jobs:
           fi
           
           # Start node in background with logging
-          $TIMEOUT_CMD polkadot-omni-node \
+          $TIMEOUT_CMD \
+          polkadot-omni-node \
             --chain ./chain_spec.json \
             --dev \
-            --tmp \
-            --rpc-cors all \
-            --unsafe-rpc-external \
-            --rpc-methods unsafe \
-            --log info \
             > node.log 2>&1 &
           
           NODE_PID=$!
