@@ -11,12 +11,10 @@ on:
         type: string
       chain-spec-builder-version:
         description: 'Polkadot chain-spec-builder version'
-        default: '10.0.0'
         required: false
         type: string
       omni-node-version:
         description: 'Polkadot omni-node version'
-        default: '0.5.0'
         required: false
         type: string
       run-duration:
@@ -25,11 +23,66 @@ on:
         required: false
         type: string
 
-env:
-  RUST_VERSION: "1.86"
-
 jobs:
   # Parallel setup jobs for better performance
+  setup-dependencies:
+      name: Setup Dependencies
+      runs-on: ubuntu-latest
+      outputs:
+        chain-spec-builder-version: ${{ steps.resolve.outputs.chain-spec-builder-version }}
+        omni-node-version: ${{ steps.resolve.outputs.omni-node-version }}
+        rust-version: ${{ steps.resolve.outputs.rust-version }}
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Resolve dependency versions
+          id: resolve
+          run: |
+            # Install yq for YAML parsing
+            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+            
+            DEPS_FILE=".github/versions.yml"
+            TUTORIAL="zero_to_hero"
+            
+            # Function to get version (tutorial-specific first, then global)
+            get_version() {
+              local dep="$1"
+              local version
+              
+              # Try tutorial-specific version first
+              version=$(yq eval ".${TUTORIAL}.${dep}" "$DEPS_FILE" 2>/dev/null)
+              if [ "$version" = "null" ] || [ -z "$version" ]; then
+                # Fallback to global version
+                version=$(yq eval ".versions.${dep}" "$DEPS_FILE" 2>/dev/null)
+              fi
+              
+              echo "$version"
+            }
+            
+            # Resolve versions (input takes precedence, then config file)
+            CHAIN_SPEC_VERSION="${{ inputs.chain-spec-builder-version }}"
+            if [ -z "$CHAIN_SPEC_VERSION" ]; then
+              CHAIN_SPEC_VERSION=$(get_version "chain_spec_builder")
+            fi
+            
+            OMNI_NODE_VERSION="${{ inputs.omni-node-version }}"
+            if [ -z "$OMNI_NODE_VERSION" ]; then
+              OMNI_NODE_VERSION=$(get_version "polkadot_omni_node")
+            fi
+            
+            RUST_VERSION=$(get_version "rust")
+            
+            echo "chain-spec-builder-version=$CHAIN_SPEC_VERSION" >> $GITHUB_OUTPUT
+            echo "omni-node-version=$OMNI_NODE_VERSION" >> $GITHUB_OUTPUT
+            echo "rust-version=$RUST_VERSION" >> $GITHUB_OUTPUT
+            
+            echo "📋 Resolved versions:"
+            echo "  - chain-spec-builder: $CHAIN_SPEC_VERSION"
+            echo "  - omni-node: $OMNI_NODE_VERSION" 
+            echo "  - rust: $RUST_VERSION"
+
   setup-tools:
     name: Setup Tools
     runs-on: ubuntu-latest
