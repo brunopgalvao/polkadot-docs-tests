@@ -4,8 +4,7 @@ description: "Clones, builds, and caches the Zero-to-Hero parachain from polkado
 inputs:
   rust-version:
     description: "Rust version to use for building"
-    required: false
-    default: "1.86"
+    required: true
   branch:
     description: "Branch to clone"
     required: false

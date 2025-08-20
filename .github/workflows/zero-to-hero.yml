@@ -3,25 +3,6 @@ description: "Zero to Hero"
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: "Branch to clone"
-        required: false
-        default: "main"
-        type: string
-      chain-spec-builder-version:
-        description: 'Polkadot chain-spec-builder version'
-        required: false
-        type: string
-      omni-node-version:
-        description: 'Polkadot omni-node version'
-        required: false
-        type: string
-      run-duration:
-        description: 'How long to run the node (in seconds, 0 for indefinite)'
-        default: '120'
-        required: false
-        type: string
 
 jobs:
   # Parallel setup jobs for better performance
@@ -61,16 +42,9 @@ jobs:
             echo "$version"
           }
           
-          # Resolve versions (input takes precedence, then config file)
-          CHAIN_SPEC_VERSION="${{ inputs.chain-spec-builder-version }}"
-          if [ -z "$CHAIN_SPEC_VERSION" ]; then
-            CHAIN_SPEC_VERSION=$(get_version "chain_spec_builder")
-          fi
-          
-          OMNI_NODE_VERSION="${{ inputs.omni-node-version }}"
-          if [ -z "$OMNI_NODE_VERSION" ]; then
-            OMNI_NODE_VERSION=$(get_version "polkadot_omni_node")
-          fi
+          # Get versions from config file
+          CHAIN_SPEC_VERSION=$(get_version "chain_spec_builder")
+          OMNI_NODE_VERSION=$(get_version "polkadot_omni_node")
           
           RUST_VERSION=$(get_version "rust")
           
@@ -129,7 +103,7 @@ jobs:
         id: setup-parachain
         uses: ./.github/actions/setup-zero-to-hero-parachain
         with:
-          branch: ${{ inputs.branch }}
+          branch: main
           rust-version: ${{ needs.setup-dependencies.outputs.rust-version }}
 
       - name: Upload parachain artifacts
@@ -189,7 +163,7 @@ jobs:
         run: |
           echo "🔧 Generating chain specification..."
           echo "📋 Using repository: https://github.com/brunopgalvao/polkadot-sdk-docs-tests"
-          echo "📋 Using branch: ${{ inputs.branch }}"
+          echo "📋 Using branch: main"
           
           # Generate chain spec
           chain-spec-builder create \
@@ -227,23 +201,17 @@ jobs:
           echo "📋 Chain Name: $CHAIN_NAME"
           echo "🆔 Para ID: $PARA_ID"
           echo "🔗 Relay Chain: $RELAY_CHAIN"
-          echo "📦 Parachain Source: https://github.com/brunopgalvao/polkadot-sdk-docs-tests@${{ inputs.branch }}"
+          echo "📦 Parachain Source: https://github.com/brunopgalvao/polkadot-sdk-docs-tests@main"
 
       - name: Start Polkadot omni-node
         timeout-minutes: 5
         run: |
           echo "🚀 Starting Polkadot omni-node..."
-          echo "📦 Built from: https://github.com/brunopgalvao/polkadot-sdk-docs-tests@${{ inputs.branch }}"
+          echo "📦 Built from: https://github.com/brunopgalvao/polkadot-sdk-docs-tests@main"
           
-          # Determine run duration
-          RUN_DURATION=${{ inputs.run-duration }}
-          if [ "$RUN_DURATION" = "0" ]; then
-            echo "⚠️ Running indefinitely (workflow will timeout after 6 hours)"
-            TIMEOUT_CMD=""
-          else
-            echo "⏱️ Running for ${RUN_DURATION} seconds"
-            TIMEOUT_CMD="timeout ${RUN_DURATION}s"
-          fi
+          # Run for 120 seconds
+          echo "⏱️ Running for 120 seconds"
+          TIMEOUT_CMD="timeout 120s"
           
           # Start node in background with logging
           $TIMEOUT_CMD \
