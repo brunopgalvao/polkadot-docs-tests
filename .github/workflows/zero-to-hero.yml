@@ -26,66 +26,67 @@ on:
 jobs:
   # Parallel setup jobs for better performance
   setup-dependencies:
-      name: Setup Dependencies
-      runs-on: ubuntu-latest
-      outputs:
-        chain-spec-builder-version: ${{ steps.resolve.outputs.chain-spec-builder-version }}
-        omni-node-version: ${{ steps.resolve.outputs.omni-node-version }}
-        rust-version: ${{ steps.resolve.outputs.rust-version }}
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+    name: Setup Dependencies
+    runs-on: ubuntu-latest
+    outputs:
+      chain-spec-builder-version: ${{ steps.resolve.outputs.chain-spec-builder-version }}
+      omni-node-version: ${{ steps.resolve.outputs.omni-node-version }}
+      rust-version: ${{ steps.resolve.outputs.rust-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        - name: Resolve dependency versions
-          id: resolve
-          run: |
-            # Install yq for YAML parsing
-            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
+      - name: Resolve dependency versions
+        id: resolve
+        run: |
+          # Install yq for YAML parsing
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          
+          DEPS_FILE=".github/versions.yml"
+          TUTORIAL="zero_to_hero"
+          
+          # Function to get version (tutorial-specific first, then global)
+          get_version() {
+            local dep="$1"
+            local version
             
-            DEPS_FILE=".github/versions.yml"
-            TUTORIAL="zero_to_hero"
-            
-            # Function to get version (tutorial-specific first, then global)
-            get_version() {
-              local dep="$1"
-              local version
-              
-              # Try tutorial-specific version first
-              version=$(yq eval ".${TUTORIAL}.${dep}" "$DEPS_FILE" 2>/dev/null)
-              if [ "$version" = "null" ] || [ -z "$version" ]; then
-                # Fallback to global version
-                version=$(yq eval ".versions.${dep}" "$DEPS_FILE" 2>/dev/null)
-              fi
-              
-              echo "$version"
-            }
-            
-            # Resolve versions (input takes precedence, then config file)
-            CHAIN_SPEC_VERSION="${{ inputs.chain-spec-builder-version }}"
-            if [ -z "$CHAIN_SPEC_VERSION" ]; then
-              CHAIN_SPEC_VERSION=$(get_version "chain_spec_builder")
+            # Try tutorial-specific version first
+            version=$(yq eval ".${TUTORIAL}.${dep}" "$DEPS_FILE" 2>/dev/null)
+            if [ "$version" = "null" ] || [ -z "$version" ]; then
+              # Fallback to global version
+              version=$(yq eval ".versions.${dep}" "$DEPS_FILE" 2>/dev/null)
             fi
             
-            OMNI_NODE_VERSION="${{ inputs.omni-node-version }}"
-            if [ -z "$OMNI_NODE_VERSION" ]; then
-              OMNI_NODE_VERSION=$(get_version "polkadot_omni_node")
-            fi
-            
-            RUST_VERSION=$(get_version "rust")
-            
-            echo "chain-spec-builder-version=$CHAIN_SPEC_VERSION" >> $GITHUB_OUTPUT
-            echo "omni-node-version=$OMNI_NODE_VERSION" >> $GITHUB_OUTPUT
-            echo "rust-version=$RUST_VERSION" >> $GITHUB_OUTPUT
-            
-            echo "📋 Resolved versions:"
-            echo "  - chain-spec-builder: $CHAIN_SPEC_VERSION"
-            echo "  - omni-node: $OMNI_NODE_VERSION" 
-            echo "  - rust: $RUST_VERSION"
+            echo "$version"
+          }
+          
+          # Resolve versions (input takes precedence, then config file)
+          CHAIN_SPEC_VERSION="${{ inputs.chain-spec-builder-version }}"
+          if [ -z "$CHAIN_SPEC_VERSION" ]; then
+            CHAIN_SPEC_VERSION=$(get_version "chain_spec_builder")
+          fi
+          
+          OMNI_NODE_VERSION="${{ inputs.omni-node-version }}"
+          if [ -z "$OMNI_NODE_VERSION" ]; then
+            OMNI_NODE_VERSION=$(get_version "polkadot_omni_node")
+          fi
+          
+          RUST_VERSION=$(get_version "rust")
+          
+          echo "chain-spec-builder-version=$CHAIN_SPEC_VERSION" >> $GITHUB_OUTPUT
+          echo "omni-node-version=$OMNI_NODE_VERSION" >> $GITHUB_OUTPUT
+          echo "rust-version=$RUST_VERSION" >> $GITHUB_OUTPUT
+          
+          echo "📋 Resolved versions:"
+          echo "  - chain-spec-builder: $CHAIN_SPEC_VERSION"
+          echo "  - omni-node: $OMNI_NODE_VERSION" 
+          echo "  - rust: $RUST_VERSION"
 
   setup-tools:
     name: Setup Tools
     runs-on: ubuntu-latest
+    needs: setup-dependencies
     outputs:
       chain-spec-builder-version: ${{ steps.chain-spec.outputs.version }}
       omni-node-version: ${{ steps.omni-node.outputs.version }}
@@ -97,25 +98,26 @@ jobs:
         id: chain-spec
         uses: ./.github/actions/setup-chain-spec-builder
         with:
-          chain-spec-builder-version: ${{ inputs.chain-spec-builder-version }}
-          rust-version: ${{ env.RUST_VERSION }}
+          chain-spec-builder-version: ${{ needs.setup-dependencies.outputs.chain-spec-builder-version }}
+          rust-version: ${{ needs.setup-dependencies.outputs.rust-version }}
 
       - name: Setup omni-node
         id: omni-node
         uses: ./.github/actions/setup-omni-node
         with:
-          omni-node-version: ${{ inputs.omni-node-version }}
-          rust-version: ${{ env.RUST_VERSION }}
+          omni-node-version: ${{ needs.setup-dependencies.outputs.omni-node-version }}
+          rust-version: ${{ needs.setup-dependencies.outputs.rust-version }}
 
       - name: Cache tools for main job
         uses: actions/cache/save@v4
         with:
           path: ~/.cargo/bin
-          key: tools-${{ runner.os }}-${{ runner.arch }}-${{ inputs.chain-spec-builder-version }}-${{ inputs.omni-node-version }}
+          key: tools-${{ runner.os }}-${{ runner.arch }}-${{ needs.setup-dependencies.outputs.chain-spec-builder-version }}-${{ needs.setup-dependencies.outputs.omni-node-version }}
 
   build-parachain:
     name: Build Parachain
     runs-on: ubuntu-latest
+    needs: setup-dependencies
     outputs:
       parachain-path: ${{ steps.setup-template.outputs.parachain-path }}
       runtime-path: ${{ steps.setup-template.outputs.runtime-path }}
@@ -128,7 +130,7 @@ jobs:
         uses: ./.github/actions/setup-zero-to-hero-parachain
         with:
           branch: ${{ inputs.branch }}
-          rust-version: ${{ env.RUST_VERSION }}
+          rust-version: ${{ needs.setup-dependencies.outputs.rust-version }}
 
       - name: Upload parachain artifacts
         uses: actions/upload-artifact@v4
@@ -141,7 +143,7 @@ jobs:
   run-parachain:
     name: Run Parachain Node
     runs-on: ubuntu-latest
-    needs: [setup-tools, build-parachain]
+    needs: [setup-dependencies, setup-tools, build-parachain]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -150,7 +152,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/.cargo/bin
-          key: tools-${{ runner.os }}-${{ runner.arch }}-${{ inputs.chain-spec-builder-version }}-${{ inputs.omni-node-version }}
+          key: tools-${{ runner.os }}-${{ runner.arch }}-${{ needs.setup-dependencies.outputs.chain-spec-builder-version }}-${{ needs.setup-dependencies.outputs.omni-node-version }}
           fail-on-cache-miss: true
 
       - name: Download parachain artifacts
